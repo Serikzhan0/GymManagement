@@ -26,10 +26,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=gymdb;Username=postgres;Password=postgres"
-      Jwt__SecretKey: "SuperSecretKeyForGymManagementApiExamTesting12345!"
+      Jwt__Key: "SuperSecretKeyForGymManagementApiExamTesting12345!"
       Jwt__Issuer: "GymManagementApi"
       Jwt__Audience: "GymManagementApi"
-      Jwt__ExpiryMinutes: "120"
+      Jwt__ExpiresInMinutes: "120"
     ports:
       - "${API_PORT:-5100}:8080"
     depends_on:

@@ -1,63 +1,85 @@
-# GymManagementApi
+# GymManagementApi (Exam-Ready Backend)
 
-A clean, exam-ready backend REST API for gym management built with **C#**, **.NET 10**, **ASP.NET Core Web API**, **Entity Framework Core**, **PostgreSQL**, **JWT Authentication**, **FluentValidation**, and **Docker**.
+A clean, simple, and easy-to-understand **C# / .NET 10** REST API backend for a gym management system, designed specifically for an exam.
 
 ---
 
-## Architecture
+## Simple Project Structure (Single Project)
 
-The project follows a clean 4-tier modular architecture adhering to SOLID principles without unnecessary abstractions (no CQRS, MediatR, or microservices):
+The project has been kept intentionally straightforward with **around 15–20 source files** and **no unnecessary enterprise layers or abstractions**:
 
 ```text
-GymManagementApi
-├── GymManagement.Domain            # Entities, Enums, Core domain models
-├── GymManagement.Application       # DTOs, FluentValidation validators, Service interfaces, Custom exceptions
-├── GymManagement.Infrastructure    # EF Core DbContext, PostgreSQL configs, Migrations, Repositories/Services, Security
-└── GymManagement.Api               # Web API Controllers, Middleware, Swagger JWT setup, Program.cs
+GymManagementApi/
+│
+├── Controllers/
+│   ├── AuthController.cs          # Register & Login with JWT
+│   ├── TrainersController.cs      # CRUD for Trainers (Admin only for modifications)
+│   ├── ExercisesController.cs     # Search, filter, CRUD for Exercises (Admin only for modifications)
+│   ├── WorkoutPlansController.cs  # Workout plans with exercises (Trainer/Admin)
+│   └── MembershipsController.cs   # Membership management & active rule checks
+│
+├── Models/
+│   ├── User.cs                    # User entity & UserRole enum (Admin, User, Trainer)
+│   ├── Trainer.cs                 # Trainer entity
+│   ├── Exercise.cs                # Exercise entity
+│   ├── WorkoutPlan.cs             # WorkoutPlan entity
+│   ├── WorkoutExercise.cs         # Many-to-many join entity (Plan <-> Exercise)
+│   └── Membership.cs              # Membership entity & enums (Type, Status)
+│
+├── DTOs/
+│   └── DTOs.cs                    # All request/response DTOs in one clear file
+│
+├── Validators/
+│   └── Validators.cs              # All FluentValidation validators in one file
+│
+├── Migrations/                    # EF Core database migrations
+│   └── ...
+│
+├── AppDbContext.cs                # EF Core PostgreSQL database context
+├── JwtService.cs                  # JWT token generator
+├── Program.cs                     # Startup configuration, middleware, Swagger, DB seeding
+├── appsettings.json               # Database connection string and JWT settings
+├── Dockerfile                     # Multi-stage Docker container build
+└── docker-compose.yml             # Runs API and PostgreSQL together
 ```
 
 ---
 
-## Features & Implemented Business Rules
+## Technologies Used
 
-1. **Active Membership Constraint**: A user cannot have two active memberships at the same time (`400 Bad Request`).
-2. **Automatic Membership Expiration**: A membership automatically becomes `Expired` when `EndDate` has passed.
-3. **Workout Plan Requirements**: A workout plan must contain at least one exercise (`400 Bad Request`).
-4. **No Duplicate Exercises**: The same exercise cannot be added twice to the same workout plan (`400 Bad Request`).
-5. **Trainer Management RBAC**: Only an `Admin` can create, update, and delete trainers (`403 Forbidden` for non-admins).
-6. **Exercise Management RBAC**: Only an `Admin` can create, update, and delete exercises (`403 Forbidden` for non-admins).
-7. **Workout Plan Management**: A `Trainer` (and `Admin`) can create and modify workout plans.
-8. **Workout Plan Viewing**: A `User` can view workout plans but cannot create or modify them (`403 Forbidden`).
-9. **Membership Authorization**: A user cannot create a membership for another user (`403 Forbidden`).
-10. **Unique Email**: User email addresses must be unique (`409 Conflict`).
-11. **Password Security**: Passwords are never stored as plain text (hashed with BCrypt).
-12. **Global Exception Handling**: Returns consistent JSON error envelopes (`{ "statusCode": ..., "message": "..." }`) and hides internal stack traces.
-13. **FluentValidation**: Validates required fields, email format, password length, positive numbers, and date ranges.
+* **Language**: C# (.NET 10)
+* **Framework**: ASP.NET Core Web API
+* **Database & ORM**: PostgreSQL with Entity Framework Core (`Npgsql.EntityFrameworkCore.PostgreSQL`)
+* **Authentication**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`)
+* **Password Hashing**: BCrypt (`BCrypt.Net-Next`)
+* **Validation**: FluentValidation (`FluentValidation.DependencyInjectionExtensions`)
+* **API Documentation**: Swagger / OpenAPI with JWT Authorization (`Swashbuckle.AspNetCore`)
+* **Containerization**: Docker & Docker Compose
 
 ---
 
 ## Quick Start with Docker Compose
 
-Run the entire application (PostgreSQL + API) with a single command:
+To start both **PostgreSQL** and **GymManagementApi**:
 
 ```bash
 docker compose up -d --build
 ```
 
-- **Swagger UI**: [http://localhost:5100](http://localhost:5100) (or root `/`)
-- **API Base URL**: `http://localhost:5100/api`
+- **Swagger UI**: [http://localhost:5100](http://localhost:5100) (accessible directly at `/`)
+- **API URL**: `http://localhost:5100/api`
 
-The database schema and initial seed data are applied automatically on startup!
+The database migrations and initial seed data are applied automatically on startup!
 
-To stop the containers:
+To stop containers:
 
 ```bash
-docker compose down
+docker compose down -v
 ```
 
 ---
 
-## Pre-seeded Test Accounts
+## Pre-seeded Accounts (For Exam Testing)
 
 | Role | Email | Password |
 |---|---|---|
@@ -67,62 +89,39 @@ docker compose down
 
 ---
 
-## Running Locally without Docker
+## Implemented Business Rules
 
-1. Ensure PostgreSQL is running on `localhost:5432` (or adjust connection string in `appsettings.json`).
-2. Apply EF Core migrations:
-   ```bash
-   dotnet ef database update --project GymManagement.Infrastructure --startup-project GymManagement.Api
-   ```
-3. Run the API:
-   ```bash
-   dotnet run --project GymManagement.Api
-   ```
-4. Access Swagger UI at `https://localhost:7198/` or `http://localhost:5000/`.
-
----
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Authenticate and obtain JWT token
-
-### Trainers
-- `GET /api/trainers` - List all trainers
-- `GET /api/trainers/{id}` - Get trainer by ID
-- `POST /api/trainers` - Create a trainer (*Admin only*)
-- `PUT /api/trainers/{id}` - Update a trainer (*Admin only*)
-- `DELETE /api/trainers/{id}` - Delete a trainer (*Admin only*)
-
-### Exercises
-- `GET /api/exercises` - List exercises with optional filters (`?muscleGroup=Chest`, `?search=bench`)
-- `GET /api/exercises/{id}` - Get exercise by ID
-- `POST /api/exercises` - Create an exercise (*Admin only*)
-- `PUT /api/exercises/{id}` - Update an exercise (*Admin only*)
-- `DELETE /api/exercises/{id}` - Delete an exercise (*Admin only*)
-
-### Workout Plans
-- `GET /api/workout-plans` - List workout plans with exercises
-- `GET /api/workout-plans/{id}` - Get workout plan by ID
-- `POST /api/workout-plans` - Create workout plan (*Trainer / Admin*)
-- `PUT /api/workout-plans/{id}` - Update workout plan (*Trainer / Admin*)
-- `DELETE /api/workout-plans/{id}` - Delete workout plan (*Trainer / Admin*)
-
-### Memberships
-- `GET /api/memberships` - List memberships (User sees own; Admin sees all)
-- `GET /api/memberships/{id}` - Get membership by ID
-- `POST /api/memberships` - Create membership (Auto-enforces active membership limits)
-- `PUT /api/memberships/{id}` - Update membership
-- `DELETE /api/memberships/{id}` - Delete membership
+1. **Unique Email**: User registration verifies email uniqueness (`409 Conflict`).
+2. **Active Membership Constraint**: A user cannot have two active memberships simultaneously (`400 Bad Request`).
+3. **Automatic Membership Expiration**: A membership automatically becomes `Expired` when `EndDate` has passed.
+4. **Workout Plan Requirements**: A workout plan must contain at least one exercise (`400 Bad Request`).
+5. **No Duplicate Exercises**: The same exercise cannot be added twice to the same workout plan (`400 Bad Request`).
+6. **Trainer Management RBAC**: Only `Admin` can create, update, and delete trainers (`403 Forbidden` for non-admins).
+7. **Exercise Management RBAC**: Only `Admin` can create, update, and delete exercises (`403 Forbidden` for non-admins).
+8. **Workout Plan Management**: A `Trainer` (and `Admin`) can create and modify workout plans.
+9. **Workout Plan Viewing**: A `User` can view workout plans but cannot create or modify them (`403 Forbidden`).
+10. **Membership Creation Ownership**: A regular user can only create a membership for themselves (`403 Forbidden`).
 
 ---
 
-## Testing in Swagger
+## Global Error Handling & Validation Format
 
-1. Open Swagger UI at `http://localhost:5100`.
-2. Call `POST /api/auth/login` with `admin@gym.com` / `Admin123!`.
-3. Copy the `token` from the response.
-4. Click the **Authorize** button at the top right of Swagger UI.
+All errors return a consistent, clean JSON structure without leaking internal exceptions or stack traces:
+
+```json
+{
+  "statusCode": 400,
+  "message": "User already has an active membership"
+}
+```
+
+---
+
+## Testing Protected Endpoints in Swagger
+
+1. Navigate to `http://localhost:5100` in your browser.
+2. Execute `POST /api/auth/login` with `admin@gym.com` and `Admin123!`.
+3. Copy the returned `token`.
+4. Click the green **Authorize** button at the top right of Swagger UI.
 5. Paste the token into the value box and click **Authorize**.
-6. Execute protected endpoints directly from Swagger.
+6. Now you can test all protected endpoints directly.
