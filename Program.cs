@@ -134,8 +134,11 @@ app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "GymManagementApi v1");
-    c.RoutePrefix = string.Empty; // Open Swagger UI at root "/"
+    c.RoutePrefix = "swagger"; // Swagger UI at /swagger
 });
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseHttpsRedirection();
 

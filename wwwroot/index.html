@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GymManagement — Управление фитнес-клубом</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header / Nav -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <span class="logo-icon">🏋️</span>
+      <span class="logo-text">Gym<strong>Management</strong></span>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <a href="/swagger" target="_blank" class="btn btn-outline btn-sm">📖 Swagger API</a>
+      <div id="userInfo" class="user-info hidden">
+        <span id="userName" class="user-name">Пользователь</span>
+        <span id="userRole" class="badge">Role</span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm">Выйти</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- AUTH SECTION (Show when logged out) -->
+  <main id="authSection" class="container auth-container">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button id="tabLoginBtn" class="auth-tab active" onclick="switchAuthTab('login')">Вход</button>
+        <button id="tabRegisterBtn" class="auth-tab" onclick="switchAuthTab('register')">Регистрация</button>
+      </div>
+
+      <!-- Quick demo login buttons -->
+      <div class="demo-logins">
+        <p class="demo-label">⚡ Быстрый вход для экзамена:</p>
+        <div class="demo-buttons">
+          <button class="btn btn-demo admin" onclick="quickLogin('admin@gym.com', 'Admin123!')">👑 Admin</button>
+          <button class="btn btn-demo trainer" onclick="quickLogin('trainer@gym.com', 'Trainer123!')">💪 Trainer</button>
+          <button class="btn btn-demo user" onclick="quickLogin('user@gym.com', 'User123!')">👤 User</button>
+        </div>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="loginEmail" required placeholder="admin@gym.com" value="admin@gym.com">
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" value="Admin123!">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Войти в систему</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" class="auth-form hidden" onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label>Имя</label>
+          <input type="text" id="regName" required placeholder="Иван Иванов">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="regEmail" required placeholder="ivan@gym.com">
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="regPassword" required minlength="6" placeholder="Минимум 6 символов">
+        </div>
+        <div class="form-group">
+          <label>Роль</label>
+          <select id="regRole">
+            <option value="User">User (Клиент)</option>
+            <option value="Trainer">Trainer (Тренер)</option>
+            <option value="Admin">Admin (Администратор)</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- DASHBOARD SECTION (Show when logged in) -->
+  <main id="appSection" class="container app-container hidden">
+    <!-- Navigation Tabs -->
+    <nav class="main-tabs">
+      <button class="tab-btn active" onclick="switchMainTab('trainers')">🧑‍🏫 Тренеры</button>
+      <button class="tab-btn" onclick="switchMainTab('exercises')">💪 Упражнения</button>
+      <button class="tab-btn" onclick="switchMainTab('workoutPlans')">📋 Планы тренировок</button>
+      <button class="tab-btn" onclick="switchMainTab('memberships')">🎟️ Абонементы</button>
+    </nav>
+
+    <!-- TAB 1: TRAINERS -->
+    <section id="trainersTab" class="tab-content active">
+      <div class="content-header">
+        <div>
+          <h2>Список тренеров</h2>
+          <p class="subtitle">Тренеры нашего спортивного клуба</p>
+        </div>
+        <button id="addTrainerBtn" class="btn btn-primary hidden" onclick="openAddTrainerModal()">+ Добавить тренера</button>
+      </div>
+      <div id="trainersGrid" class="cards-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 2: EXERCISES -->
+    <section id="exercisesTab" class="tab-content">
+      <div class="content-header">
+        <div>
+          <h2>База упражнений</h2>
+          <p class="subtitle">Поиск и фильтрация по группам мышц</p>
+        </div>
+        <button id="addExerciseBtn" class="btn btn-primary hidden" onclick="openAddExerciseModal()">+ Добавить упражнение</button>
+      </div>
+
+      <!-- Filters & Search -->
+      <div class="filters-bar">
+        <input type="text" id="exerciseSearch" placeholder="🔍 Поиск по названию или описанию..." oninput="handleExerciseSearch()">
+        <select id="exerciseMuscleFilter" onchange="handleExerciseFilter()">
+          <option value="">Все группы мышц</option>
+          <option value="Chest">Грудь (Chest)</option>
+          <option value="Legs">Ноги (Legs)</option>
+          <option value="Back">Спина (Back)</option>
+          <option value="Shoulders">Плечи (Shoulders)</option>
+          <option value="Arms">Руки (Arms)</option>
+        </select>
+      </div>
+
+      <div id="exercisesGrid" class="cards-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 3: WORKOUT PLANS -->
+    <section id="workoutPlansTab" class="tab-content">
+      <div class="content-header">
+        <div>
+          <h2>Планы тренировок</h2>
+          <p class="subtitle">Программы занятий, составленные тренерами</p>
+        </div>
+        <button id="addPlanBtn" class="btn btn-primary hidden" onclick="openAddPlanModal()">+ Создать план тренировки</button>
+      </div>
+      <div id="workoutPlansGrid" class="plans-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 4: MEMBERSHIPS -->
+    <section id="membershipsTab" class="tab-content">
+      <div class="content-header">
+        <div>
+          <h2>Абонементы</h2>
+          <p class="subtitle" id="membershipSubtitle">Ваши активные и архивные абонементы</p>
+        </div>
+        <button id="buyMembershipBtn" class="btn btn-primary" onclick="openBuyMembershipModal()">+ Оформить абонемент</button>
+      </div>
+      <div id="membershipsList" class="memberships-list">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL: ADD TRAINER -->
+  <div id="trainerModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Добавить тренера</h3>
+        <button class="modal-close" onclick="closeModal('trainerModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateTrainer(event)">
+        <div class="form-group">
+          <label>Имя тренера</label>
+          <input type="text" id="newTrainerName" required placeholder="Например: Дмитрий Волков">
+        </div>
+        <div class="form-group">
+          <label>Специализация</label>
+          <input type="text" id="newTrainerSpec" required placeholder="Например: Пауэрлифтинг, Кроссфит">
+        </div>
+        <div class="form-group">
+          <label>Опыт работы (лет)</label>
+          <input type="number" id="newTrainerExp" required min="0" value="3">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('trainerModal')">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD EXERCISE -->
+  <div id="exerciseModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Добавить упражнение</h3>
+        <button class="modal-close" onclick="closeModal('exerciseModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateExercise(event)">
+        <div class="form-group">
+          <label>Название упражнения</label>
+          <input type="text" id="newExName" required placeholder="Например: Жим гантелей лежа">
+        </div>
+        <div class="form-group">
+          <label>Описание</label>
+          <textarea id="newExDesc" required placeholder="Техника выполнения упражнения..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Группа мышц</label>
+          <select id="newExMuscle" required>
+            <option value="Chest">Грудь (Chest)</option>
+            <option value="Legs">Ноги (Legs)</option>
+            <option value="Back">Спина (Back)</option>
+            <option value="Shoulders">Плечи (Shoulders)</option>
+            <option value="Arms">Руки (Arms)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('exerciseModal')">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE WORKOUT PLAN -->
+  <div id="workoutPlanModal" class="modal hidden">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <h3>Создать план тренировки</h3>
+        <button class="modal-close" onclick="closeModal('workoutPlanModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateWorkoutPlan(event)">
+        <div class="form-group">
+          <label>Название плана</label>
+          <input type="text" id="newPlanName" required placeholder="Например: Программа на рельеф">
+        </div>
+        <div class="form-group">
+          <label>Описание плана</label>
+          <textarea id="newPlanDesc" required placeholder="Цели и рекомендации по выполнению..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Назначенный тренер</label>
+          <select id="newPlanTrainer" required>
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <div class="flex-between">
+            <label>Упражнения в плане</label>
+            <button type="button" class="btn btn-sm btn-outline" onclick="addExerciseRowToPlan()">+ Добавить упражнение</button>
+          </div>
+          <div id="planExercisesContainer" class="plan-exercises-list">
+            <!-- Exercise rows dynamically added -->
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('workoutPlanModal')">Отмена</button>
+          <button type="submit" class="btn btn-primary">Создать программу</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: BUY MEMBERSHIP -->
+  <div id="membershipModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Оформить абонемент</h3>
+        <button class="modal-close" onclick="closeModal('membershipModal')">&times;</button>
+      </div>
+      <form onsubmit="handleCreateMembership(event)">
+        <div class="form-group">
+          <label>Тип абонемента</label>
+          <select id="newMemType" onchange="updateMembershipDates()">
+            <option value="Monthly">Monthly (1 месяц)</option>
+            <option value="Quarterly">Quarterly (3 месяца)</option>
+            <option value="Yearly">Yearly (1 год)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Дата начала</label>
+          <input type="date" id="newMemStartDate" required onchange="updateMembershipDates()">
+        </div>
+        <div class="form-group">
+          <label>Дата окончания</label>
+          <input type="date" id="newMemEndDate" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('membershipModal')">Отмена</button>
+          <button type="submit" class="btn btn-primary">Оформить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
