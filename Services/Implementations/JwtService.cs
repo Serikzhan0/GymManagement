@@ -2,11 +2,12 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using GymManagementApi.Models;
+using GymManagementApi.Services.Interfaces;
 using Microsoft.IdentityModel.Tokens;
 
-namespace GymManagementApi;
+namespace GymManagementApi.Services.Implementations;
 
-public class JwtService
+public class JwtService : IJwtService
 {
     private readonly IConfiguration _configuration;
 

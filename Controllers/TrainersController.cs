@@ -1,9 +1,8 @@
-using FluentValidation;
 using GymManagementApi.DTOs;
-using GymManagementApi.Models;
+using GymManagementApi.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GymManagementApi.Controllers;
 
@@ -11,145 +10,70 @@ namespace GymManagementApi.Controllers;
 [Route("api/trainers")]
 public class TrainersController : ControllerBase
 {
-    private readonly AppDbContext _context;
-    private readonly IValidator<CreateTrainerDto> _createValidator;
-    private readonly IValidator<UpdateTrainerDto> _updateValidator;
+    private readonly ITrainerService _trainerService;
 
-    public TrainersController(
-        AppDbContext context,
-        IValidator<CreateTrainerDto> createValidator,
-        IValidator<UpdateTrainerDto> updateValidator)
+    public TrainersController(ITrainerService trainerService)
     {
-        _context = context;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
+        _trainerService = trainerService;
     }
 
     [HttpGet]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<TrainerDto>>> GetAll()
     {
-        var trainers = await _context.Trainers
-            .AsNoTracking()
-            .Select(t => new TrainerDto
-            {
-                Id = t.Id,
-                Name = t.Name,
-                Specialization = t.Specialization,
-                ExperienceYears = t.ExperienceYears
-            })
-            .ToListAsync();
-
+        var trainers = await _trainerService.GetAllAsync();
         return Ok(trainers);
     }
 
     [HttpGet("{id:int}")]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<TrainerDto>> GetById(int id)
     {
-        var trainer = await _context.Trainers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == id);
-
-        if (trainer == null)
+        var result = await _trainerService.GetByIdAsync(id);
+        if (!result.IsSuccess)
         {
-            return NotFound(new ErrorResponse(StatusCodes.Status404NotFound, $"Trainer with ID '{id}' was not found."));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Trainer not found."));
         }
 
-        return Ok(new TrainerDto
-        {
-            Id = trainer.Id,
-            Name = trainer.Name,
-            Specialization = trainer.Specialization,
-            ExperienceYears = trainer.ExperienceYears
-        });
+        return Ok(result.Data);
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<TrainerDto>> Create([FromBody] CreateTrainerDto dto)
     {
-        var validation = await _createValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
+        var result = await _trainerService.CreateAsync(dto);
+        if (!result.IsSuccess)
         {
-            var firstError = validation.Errors[0].ErrorMessage;
-            return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, firstError, validation.ToDictionary()));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to create trainer.", result.ValidationErrors));
         }
 
-        var trainer = new Trainer
-        {
-            Name = dto.Name.Trim(),
-            Specialization = dto.Specialization.Trim(),
-            ExperienceYears = dto.ExperienceYears
-        };
-
-        _context.Trainers.Add(trainer);
-        await _context.SaveChangesAsync();
-
-        var result = new TrainerDto
-        {
-            Id = trainer.Id,
-            Name = trainer.Name,
-            Specialization = trainer.Specialization,
-            ExperienceYears = trainer.ExperienceYears
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = trainer.Id }, result);
+        return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<TrainerDto>> Update(int id, [FromBody] UpdateTrainerDto dto)
     {
-        var validation = await _updateValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
+        var result = await _trainerService.UpdateAsync(id, dto);
+        if (!result.IsSuccess)
         {
-            var firstError = validation.Errors[0].ErrorMessage;
-            return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, firstError, validation.ToDictionary()));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to update trainer.", result.ValidationErrors));
         }
 
-        var trainer = await _context.Trainers.FindAsync(id);
-        if (trainer == null)
-        {
-            return NotFound(new ErrorResponse(StatusCodes.Status404NotFound, $"Trainer with ID '{id}' was not found."));
-        }
-
-        trainer.Name = dto.Name.Trim();
-        trainer.Specialization = dto.Specialization.Trim();
-        trainer.ExperienceYears = dto.ExperienceYears;
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new TrainerDto
-        {
-            Id = trainer.Id,
-            Name = trainer.Name,
-            Specialization = trainer.Specialization,
-            ExperienceYears = trainer.ExperienceYears
-        });
+        return Ok(result.Data);
     }
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
-        var trainer = await _context.Trainers
-            .Include(t => t.WorkoutPlans)
-            .FirstOrDefaultAsync(t => t.Id == id);
-
-        if (trainer == null)
+        var result = await _trainerService.DeleteAsync(id);
+        if (!result.IsSuccess)
         {
-            return NotFound(new ErrorResponse(StatusCodes.Status404NotFound, $"Trainer with ID '{id}' was not found."));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to delete trainer."));
         }
 
-        if (trainer.WorkoutPlans.Any())
-        {
-            return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, "Cannot delete a trainer who has existing workout plans."));
-        }
-
-        _context.Trainers.Remove(trainer);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { statusCode = 200, message = "Trainer deleted successfully." });
+        return Ok(new { statusCode = 200, message = result.ErrorMessage ?? "Trainer deleted successfully." });
     }
 }

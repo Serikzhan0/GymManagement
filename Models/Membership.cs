@@ -1,19 +1,5 @@
 namespace GymManagementApi.Models;
 
-public enum MembershipType
-{
-    Monthly,
-    Quarterly,
-    Yearly
-}
-
-public enum MembershipStatus
-{
-    Active,
-    Expired,
-    Cancelled
-}
-
 public class Membership
 {
     public int Id { get; set; }

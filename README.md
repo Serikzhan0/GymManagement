@@ -1,127 +1,132 @@
-# GymManagementApi (Exam-Ready Backend)
+# APEX Gym Management System (Backend & SPA Frontend)
 
-A clean, simple, and easy-to-understand **C# / .NET 10** REST API backend for a gym management system, designed specifically for an exam.
+Современная экосистема для фитнес-клуба на **.NET 10** и **PostgreSQL**, построенная по принципам **SOLID**, с разделением на слои (DTO, Repositories, Services, Controllers), JWT-авторизацией, кошельком, турникетом (СКУД) и встроенным SPA веб-интерфейсом.
 
 ---
 
-## Simple Project Structure (Single Project)
+## Архитектура и принципы SOLID
 
-The project has been kept intentionally straightforward with **around 15–20 source files** and **no unnecessary enterprise layers or abstractions**:
+Проект спроектирован с соблюдением принципов чистой архитектуры:
+- **S (Single Responsibility Principle)**: Каждый класс и интерфейс вынесен в отдельный файл с единственной ответственностью.
+- **O (Open/Closed Principle)**: Расширение функционала через интерфейсы без изменения существующего кода.
+- **L (Liskov Substitution Principle)**: Полноценная взаимозаменяемость реализаций репозиториев и сервисов.
+- **I (Interface Segregation Principle)**: Узкоспециализированные интерфейсы для каждой доменной области.
+- **D (Dependency Inversion Principle)**: Контроллеры и сервисы зависят строго от интерфейсов (IoC/DI).
 
 ```text
-GymManagementApi/
+GymManagement/
+├── Controllers/                 # Тонкие API-контроллеры (HTTP routing, status codes)
+│   ├── AnalyticsController.cs
+│   ├── AuthController.cs
+│   ├── CheckInsController.cs
+│   ├── ExercisesController.cs
+│   ├── MembershipsController.cs
+│   ├── TrainersController.cs
+│   ├── WalletController.cs
+│   └── WorkoutPlansController.cs
 │
-├── Controllers/
-│   ├── AuthController.cs          # Register & Login with JWT
-│   ├── TrainersController.cs      # CRUD for Trainers (Admin only for modifications)
-│   ├── ExercisesController.cs     # Search, filter, CRUD for Exercises (Admin only for modifications)
-│   ├── WorkoutPlansController.cs  # Workout plans with exercises (Trainer/Admin)
-│   └── MembershipsController.cs   # Membership management & active rule checks
+├── Services/                    # Слой бизнес-логики
+│   ├── Interfaces/
+│   │   ├── IAnalyticsService.cs
+│   │   ├── IAuthService.cs
+│   │   ├── ICheckInService.cs
+│   │   ├── IExerciseService.cs
+│   │   ├── IJwtService.cs
+│   │   ├── IMembershipService.cs
+│   │   ├── ITrainerService.cs
+│   │   ├── IWalletService.cs
+│   │   └── IWorkoutPlanService.cs
+│   └── Implementations/
+│       ├── AnalyticsService.cs
+│       ├── AuthService.cs
+│       ├── CheckInService.cs
+│       ├── ExerciseService.cs
+│       ├── JwtService.cs
+│       ├── MembershipService.cs
+│       ├── TrainerService.cs
+│       ├── WalletService.cs
+│       └── WorkoutPlanService.cs
 │
-├── Models/
-│   ├── User.cs                    # User entity & UserRole enum (Admin, User, Trainer)
-│   ├── Trainer.cs                 # Trainer entity
-│   ├── Exercise.cs                # Exercise entity
-│   ├── WorkoutPlan.cs             # WorkoutPlan entity
-│   ├── WorkoutExercise.cs         # Many-to-many join entity (Plan <-> Exercise)
-│   └── Membership.cs              # Membership entity & enums (Type, Status)
+├── Repositories/                # Слой доступа к данным (EF Core queries)
+│   ├── Interfaces/
+│   │   ├── ICheckInRepository.cs
+│   │   ├── IExerciseRepository.cs
+│   │   ├── IMembershipRepository.cs
+│   │   ├── ITrainerRepository.cs
+│   │   ├── IUserRepository.cs
+│   │   ├── IWalletRepository.cs
+│   │   └── IWorkoutPlanRepository.cs
+│   └── Implementations/
+│       ├── CheckInRepository.cs
+│       ├── ExerciseRepository.cs
+│       ├── MembershipRepository.cs
+│       ├── TrainerRepository.cs
+│       ├── UserRepository.cs
+│       ├── WalletRepository.cs
+│       └── WorkoutPlanRepository.cs
 │
-├── DTOs/
-│   └── DTOs.cs                    # All request/response DTOs in one clear file
+├── Models/                      # Сущности базы данных
+│   ├── CheckIn.cs
+│   ├── Exercise.cs
+│   ├── Membership.cs
+│   ├── MembershipStatus.cs
+│   ├── MembershipType.cs
+│   ├── Trainer.cs
+│   ├── User.cs
+│   ├── UserRole.cs
+│   ├── WalletTransaction.cs
+│   ├── WorkoutExercise.cs
+│   └── WorkoutPlan.cs
 │
-├── Validators/
-│   └── Validators.cs              # All FluentValidation validators in one file
+├── DTOs/                        # Data Transfer Objects по доменам
+│   ├── Analytics/
+│   ├── Auth/
+│   ├── CheckIns/
+│   ├── Common/
+│   ├── Exercises/
+│   ├── Memberships/
+│   ├── Trainers/
+│   ├── Wallet/
+│   └── WorkoutPlans/
 │
-├── Migrations/                    # EF Core database migrations
-│   └── ...
-│
-├── AppDbContext.cs                # EF Core PostgreSQL database context
-├── JwtService.cs                  # JWT token generator
-├── Program.cs                     # Startup configuration, middleware, Swagger, DB seeding
-├── appsettings.json               # Database connection string and JWT settings
-├── Dockerfile                     # Multi-stage Docker container build
-└── docker-compose.yml             # Runs API and PostgreSQL together
+├── Validators/                  # FluentValidation валидаторы
+├── wwwroot/                     # Веб-клиент (SPA с личными кабинетами)
+├── AppDbContext.cs              # EF Core PostgreSQL DbContext
+├── DataSeeder.cs                # Автоматический сидер демо-данных
+├── Program.cs                   # Точка входа, DI регистрация, Middleware
+├── Dockerfile                   # Multi-stage Dockerfile
+└── docker-compose.yml           # Запуск API и PostgreSQL в Docker
 ```
 
 ---
 
-## Technologies Used
+## Стек технологий
 
-* **Language**: C# (.NET 10)
-* **Framework**: ASP.NET Core Web API
-* **Database & ORM**: PostgreSQL with Entity Framework Core (`Npgsql.EntityFrameworkCore.PostgreSQL`)
-* **Authentication**: JWT Bearer Authentication (`Microsoft.AspNetCore.Authentication.JwtBearer`)
-* **Password Hashing**: BCrypt (`BCrypt.Net-Next`)
-* **Validation**: FluentValidation (`FluentValidation.DependencyInjectionExtensions`)
-* **API Documentation**: Swagger / OpenAPI with JWT Authorization (`Swashbuckle.AspNetCore`)
-* **Containerization**: Docker & Docker Compose
+* **Backend**: C# (.NET 10), ASP.NET Core Web API
+* **База данных**: PostgreSQL 16 + Entity Framework Core (`Npgsql.EntityFrameworkCore.PostgreSQL`)
+* **Безопасность**: JWT Bearer Tokens, BCrypt пароли
+* **Валидация**: FluentValidation
+* **Документация**: Swagger / OpenAPI
+* **Контейнеризация**: Docker, Docker Compose
+* **Frontend**: HTML5, Modern CSS, Vanilla JS, Lucide Icons (встроены в `wwwroot`)
 
 ---
 
-## Quick Start with Docker Compose
-
-To start both **PostgreSQL** and **GymManagementApi**:
+## Быстрый запуск с Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-- **Swagger UI**: [http://localhost:5100](http://localhost:5100) (accessible directly at `/`)
-- **API URL**: `http://localhost:5100/api`
-
-The database migrations and initial seed data are applied automatically on startup!
-
-To stop containers:
-
-```bash
-docker compose down -v
-```
+API и фронтенд будут доступны по адресу: **http://localhost:5100**  
+Swagger UI: **http://localhost:5100/swagger**
 
 ---
 
-## Pre-seeded Accounts (For Exam Testing)
+## Тестовые учетные записи
 
-| Role | Email | Password |
-|---|---|---|
+| Роль | Email | Пароль |
+| :--- | :--- | :--- |
 | **Admin** | `admin@gym.com` | `Admin123!` |
 | **Trainer** | `trainer@gym.com` | `Trainer123!` |
 | **User** | `user@gym.com` | `User123!` |
-
----
-
-## Implemented Business Rules
-
-1. **Unique Email**: User registration verifies email uniqueness (`409 Conflict`).
-2. **Active Membership Constraint**: A user cannot have two active memberships simultaneously (`400 Bad Request`).
-3. **Automatic Membership Expiration**: A membership automatically becomes `Expired` when `EndDate` has passed.
-4. **Workout Plan Requirements**: A workout plan must contain at least one exercise (`400 Bad Request`).
-5. **No Duplicate Exercises**: The same exercise cannot be added twice to the same workout plan (`400 Bad Request`).
-6. **Trainer Management RBAC**: Only `Admin` can create, update, and delete trainers (`403 Forbidden` for non-admins).
-7. **Exercise Management RBAC**: Only `Admin` can create, update, and delete exercises (`403 Forbidden` for non-admins).
-8. **Workout Plan Management**: A `Trainer` (and `Admin`) can create and modify workout plans.
-9. **Workout Plan Viewing**: A `User` can view workout plans but cannot create or modify them (`403 Forbidden`).
-10. **Membership Creation Ownership**: A regular user can only create a membership for themselves (`403 Forbidden`).
-
----
-
-## Global Error Handling & Validation Format
-
-All errors return a consistent, clean JSON structure without leaking internal exceptions or stack traces:
-
-```json
-{
-  "statusCode": 400,
-  "message": "User already has an active membership"
-}
-```
-
----
-
-## Testing Protected Endpoints in Swagger
-
-1. Navigate to `http://localhost:5100` in your browser.
-2. Execute `POST /api/auth/login` with `admin@gym.com` and `Admin123!`.
-3. Copy the returned `token`.
-4. Click the green **Authorize** button at the top right of Swagger UI.
-5. Paste the token into the value box and click **Authorize**.
-6. Now you can test all protected endpoints directly.

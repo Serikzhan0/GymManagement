@@ -5,11 +5,17 @@ using FluentValidation;
 using GymManagementApi;
 using GymManagementApi.DTOs;
 using GymManagementApi.Models;
+using GymManagementApi.Repositories.Implementations;
+using GymManagementApi.Repositories.Interfaces;
+using GymManagementApi.Services.Implementations;
+using GymManagementApi.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,9 +48,28 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 4. JWT Service & Authentication
-builder.Services.AddScoped<JwtService>();
+// 4. Repositories Registration
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ITrainerRepository, TrainerRepository>();
+builder.Services.AddScoped<IExerciseRepository, ExerciseRepository>();
+builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
+builder.Services.AddScoped<IWorkoutPlanRepository, WorkoutPlanRepository>();
+builder.Services.AddScoped<ICheckInRepository, CheckInRepository>();
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 
+// 5. Business Logic Services Registration
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<JwtService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ITrainerService, TrainerService>();
+builder.Services.AddScoped<IExerciseService, ExerciseService>();
+builder.Services.AddScoped<IMembershipService, MembershipService>();
+builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
+builder.Services.AddScoped<ICheckInService, CheckInService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+
+// 6. Authentication & JWT Configuration
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyForGymManagementApiExamTesting12345!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "GymManagementApi";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "GymManagementApi";
@@ -67,10 +92,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// 5. FluentValidation
+// 7. FluentValidation & HealthChecks
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddHealthChecks();
 
-// 6. Swagger with JWT Authentication
+// 8. Swagger with JWT Authentication
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -100,7 +126,7 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// 7. Global Exception Handling Middleware
+// 9. Global Exception Handling Middleware
 app.Use(async (context, next) =>
 {
     try
@@ -129,7 +155,7 @@ app.Use(async (context, next) =>
     }
 });
 
-// 8. Swagger UI
+// 10. Swagger UI
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -146,8 +172,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
-// 9. Database Migration and Seeder on Startup
+// 11. Database Migration and Seeder on Startup
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -157,127 +184,11 @@ using (var scope = app.Services.CreateScope())
         var db = services.GetRequiredService<AppDbContext>();
         if (db.Database.IsRelational())
         {
-            await db.Database.MigrateAsync();
+            await db.Database.EnsureCreatedAsync();
         }
 
         // Seed initial data if database is empty
-        if (!await db.Users.AnyAsync())
-        {
-            logger.LogInformation("Seeding initial exam data...");
-
-            // 1. Users
-            var adminUser = new User
-            {
-                Name = "Admin User",
-                Email = "admin@gym.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-                Role = UserRole.Admin,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            var trainerUser = new User
-            {
-                Name = "Mike Trainer",
-                Email = "trainer@gym.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Trainer123!"),
-                Role = UserRole.Trainer,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            var normalUser = new User
-            {
-                Name = "John Member",
-                Email = "user@gym.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("User123!"),
-                Role = UserRole.User,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            db.Users.AddRange(adminUser, trainerUser, normalUser);
-            await db.SaveChangesAsync();
-
-            // 2. Trainers
-            var trainer1 = new Trainer
-            {
-                Name = "Mike Trainer",
-                Specialization = "Strength & Conditioning",
-                ExperienceYears = 5
-            };
-
-            var trainer2 = new Trainer
-            {
-                Name = "Sarah Coach",
-                Specialization = "Cardio & HIIT",
-                ExperienceYears = 3
-            };
-
-            db.Trainers.AddRange(trainer1, trainer2);
-            await db.SaveChangesAsync();
-
-            // 3. Exercises
-            var benchPress = new Exercise
-            {
-                Name = "Bench Press",
-                Description = "Barbell flat bench press",
-                MuscleGroup = "Chest"
-            };
-
-            var squat = new Exercise
-            {
-                Name = "Barbell Squat",
-                Description = "Back squat below parallel",
-                MuscleGroup = "Legs"
-            };
-
-            var pullUp = new Exercise
-            {
-                Name = "Pull-Up",
-                Description = "Wide grip bodyweight pull-up",
-                MuscleGroup = "Back"
-            };
-
-            var overheadPress = new Exercise
-            {
-                Name = "Overhead Press",
-                Description = "Standing barbell overhead shoulder press",
-                MuscleGroup = "Shoulders"
-            };
-
-            db.Exercises.AddRange(benchPress, squat, pullUp, overheadPress);
-            await db.SaveChangesAsync();
-
-            // 4. Workout Plan
-            var plan = new WorkoutPlan
-            {
-                Name = "Full Body Starter",
-                Description = "Foundational full body strength routine",
-                TrainerId = trainer1.Id,
-                CreatedAt = DateTime.UtcNow,
-                WorkoutExercises = new List<WorkoutExercise>
-                {
-                    new() { ExerciseId = benchPress.Id, Sets = 3, Repetitions = 10 },
-                    new() { ExerciseId = squat.Id, Sets = 3, Repetitions = 8 },
-                    new() { ExerciseId = pullUp.Id, Sets = 3, Repetitions = 8 }
-                }
-            };
-
-            db.WorkoutPlans.Add(plan);
-
-            // 5. Active Membership for John Member
-            var membership = new Membership
-            {
-                UserId = normalUser.Id,
-                StartDate = DateTime.UtcNow.AddDays(-5),
-                EndDate = DateTime.UtcNow.AddDays(25),
-                Type = MembershipType.Monthly,
-                Status = MembershipStatus.Active
-            };
-
-            db.Memberships.Add(membership);
-
-            await db.SaveChangesAsync();
-            logger.LogInformation("Database seeded successfully.");
-        }
+        await DataSeeder.SeedAsync(db, logger);
     }
     catch (Exception ex)
     {

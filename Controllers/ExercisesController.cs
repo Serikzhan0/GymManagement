@@ -1,9 +1,8 @@
-using FluentValidation;
 using GymManagementApi.DTOs;
-using GymManagementApi.Models;
+using GymManagementApi.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GymManagementApi.Controllers;
 
@@ -11,160 +10,85 @@ namespace GymManagementApi.Controllers;
 [Route("api/exercises")]
 public class ExercisesController : ControllerBase
 {
-    private readonly AppDbContext _context;
-    private readonly IValidator<CreateExerciseDto> _createValidator;
-    private readonly IValidator<UpdateExerciseDto> _updateValidator;
+    private readonly IExerciseService _exerciseService;
 
-    public ExercisesController(
-        AppDbContext context,
-        IValidator<CreateExerciseDto> createValidator,
-        IValidator<UpdateExerciseDto> updateValidator)
+    public ExercisesController(IExerciseService exerciseService)
     {
-        _context = context;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
+        _exerciseService = exerciseService;
     }
 
     [HttpGet]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<IEnumerable<ExerciseDto>>> GetAll(
         [FromQuery] string? muscleGroup,
         [FromQuery] string? search)
     {
-        var query = _context.Exercises.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(muscleGroup))
-        {
-            var mg = muscleGroup.Trim().ToLower();
-            query = query.Where(e => e.MuscleGroup.ToLower() == mg);
-        }
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var s = search.Trim().ToLower();
-            query = query.Where(e => e.Name.ToLower().Contains(s) || e.Description.ToLower().Contains(s));
-        }
-
-        var exercises = await query
-            .Select(e => new ExerciseDto
-            {
-                Id = e.Id,
-                Name = e.Name,
-                Description = e.Description,
-                MuscleGroup = e.MuscleGroup
-            })
-            .ToListAsync();
-
+        var exercises = await _exerciseService.GetAllAsync(muscleGroup, search);
         return Ok(exercises);
     }
 
     [HttpGet("{id:int}")]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<ActionResult<ExerciseDto>> GetById(int id)
     {
-        var exercise = await _context.Exercises
-            .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == id);
-
-        if (exercise == null)
+        var result = await _exerciseService.GetByIdAsync(id);
+        if (!result.IsSuccess)
         {
-            return NotFound(new ErrorResponse(StatusCodes.Status404NotFound, $"Exercise with ID '{id}' was not found."));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Exercise not found."));
         }
 
-        return Ok(new ExerciseDto
-        {
-            Id = exercise.Id,
-            Name = exercise.Name,
-            Description = exercise.Description,
-            MuscleGroup = exercise.MuscleGroup
-        });
+        return Ok(result.Data);
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<ExerciseDto>> Create([FromBody] CreateExerciseDto dto)
     {
-        var validation = await _createValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
+        var result = await _exerciseService.CreateAsync(dto);
+        if (!result.IsSuccess)
         {
-            var firstError = validation.Errors[0].ErrorMessage;
-            return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, firstError, validation.ToDictionary()));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to create exercise.", result.ValidationErrors));
         }
 
-        var exercise = new Exercise
-        {
-            Name = dto.Name.Trim(),
-            Description = dto.Description.Trim(),
-            MuscleGroup = dto.MuscleGroup.Trim()
-        };
-
-        _context.Exercises.Add(exercise);
-        await _context.SaveChangesAsync();
-
-        var result = new ExerciseDto
-        {
-            Id = exercise.Id,
-            Name = exercise.Name,
-            Description = exercise.Description,
-            MuscleGroup = exercise.MuscleGroup
-        };
-
-        return CreatedAtAction(nameof(GetById), new { id = exercise.Id }, result);
+        return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [AllowAnonymous]
     public async Task<ActionResult<ExerciseDto>> Update(int id, [FromBody] UpdateExerciseDto dto)
     {
-        var validation = await _updateValidator.ValidateAsync(dto);
-        if (!validation.IsValid)
+        var result = await _exerciseService.UpdateAsync(id, dto);
+        if (!result.IsSuccess)
         {
-            var firstError = validation.Errors[0].ErrorMessage;
-            return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, firstError, validation.ToDictionary()));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to update exercise.", result.ValidationErrors));
         }
 
-        var exercise = await _context.Exercises.FindAsync(id);
-        if (exercise == null)
+        return Ok(result.Data);
+    }
+
+    [HttpPut("{id:int}/media")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ExerciseDto>> UpdateMedia(int id, [FromBody] UpdateExerciseMediaDto dto)
+    {
+        var result = await _exerciseService.UpdateMediaAsync(id, dto);
+        if (!result.IsSuccess)
         {
-            return NotFound(new ErrorResponse(StatusCodes.Status404NotFound, $"Exercise with ID '{id}' was not found."));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to update exercise media."));
         }
 
-        exercise.Name = dto.Name.Trim();
-        exercise.Description = dto.Description.Trim();
-        exercise.MuscleGroup = dto.MuscleGroup.Trim();
-
-        await _context.SaveChangesAsync();
-
-        return Ok(new ExerciseDto
-        {
-            Id = exercise.Id,
-            Name = exercise.Name,
-            Description = exercise.Description,
-            MuscleGroup = exercise.MuscleGroup
-        });
+        return Ok(result.Data);
     }
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
-        var exercise = await _context.Exercises
-            .Include(e => e.WorkoutExercises)
-            .FirstOrDefaultAsync(e => e.Id == id);
-
-        if (exercise == null)
+        var result = await _exerciseService.DeleteAsync(id);
+        if (!result.IsSuccess)
         {
-            return NotFound(new ErrorResponse(StatusCodes.Status404NotFound, $"Exercise with ID '{id}' was not found."));
+            return StatusCode(result.StatusCode, new ErrorResponse(result.StatusCode, result.ErrorMessage ?? "Failed to delete exercise."));
         }
 
-        if (exercise.WorkoutExercises.Any())
-        {
-            return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, "Cannot delete an exercise that is currently in workout plans."));
-        }
-
-        _context.Exercises.Remove(exercise);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { statusCode = 200, message = "Exercise deleted successfully." });
+        return Ok(new { statusCode = 200, message = result.ErrorMessage ?? "Exercise deleted successfully." });
     }
 }
