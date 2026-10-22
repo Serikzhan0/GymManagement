@@ -93,7 +93,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // 7. FluentValidation & HealthChecks
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddValidatorsFromAssemblyContaining<GymManagementApi.Validators.RegisterValidator>();
 builder.Services.AddHealthChecks();
 
 // 8. Swagger with JWT Authentication

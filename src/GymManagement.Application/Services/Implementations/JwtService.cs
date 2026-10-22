@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using GymManagementApi.Models;
 using GymManagementApi.Services.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 namespace GymManagementApi.Services.Implementations;
