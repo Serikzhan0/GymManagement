@@ -1,6 +1,48 @@
-@GymManagementApi_HostAddress = http://localhost:5144
+@HostAddress = http://localhost:5100
 
-GET {{GymManagementApi_HostAddress}}/weatherforecast/
+### 1. Health Check
+GET {{HostAddress}}/health
+Accept: text/plain
+
+### 2. Swagger JSON Schema
+GET {{HostAddress}}/swagger/v1/swagger.json
 Accept: application/json
 
-###
+### 3. Get All Trainers
+GET {{HostAddress}}/api/trainers
+Accept: application/json
+
+### 4. Admin Login (Получение JWT токена)
+# @name login
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@gym.com",
+  "password": "Admin123!"
+}
+
+### 5. Получение сводки аналитики (с токеном из запроса выше)
+@authToken = {{login.response.body.token}}
+
+GET {{HostAddress}}/api/analytics/summary
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 6. Получение списка упражнений
+GET {{HostAddress}}/api/exercises
+Accept: application/json
+
+### 7. Турникет (СКУД) - Отметка входа в зал
+POST {{HostAddress}}/api/check-ins
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "userId": 1
+}
+
+### 8. Просмотр баланса кошелька
+GET {{HostAddress}}/api/wallet
+Authorization: Bearer {{authToken}}
+Accept: application/json
